@@ -27,6 +27,8 @@ while 1:
     polygonize(threshold, date_time)
 
     #ph_filter functions
-    filter(threshold, date_time)
-
-    sleep(15)    # temporary
+    # filter(threshold, date_time)
+    
+    sleep_timer = randint(1*15*60,1*60*60)  # random time sampling
+    print("Sleeping for "+str(sleep_timer)+" seconds...")
+    sleep(sleep_timer)
