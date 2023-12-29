@@ -14,7 +14,7 @@ while 1:
     #ph_aqi functions
     WAQI_sensors, IQAir_locations, IQAir_sensors = init_sensors()
     Sensor_Name, X_location, Y_location, US_AQI, df = get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors)
-    df_to_csv(df, date_time)
+    # df_to_csv(df, date_time)
     df_to_shp(df, date_time)
 
     #ph_idw functions
