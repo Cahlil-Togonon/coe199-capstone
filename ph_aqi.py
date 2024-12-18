@@ -3,6 +3,8 @@ import pandas as pd
 from geopandas import GeoDataFrame
 from shapely.geometry import Point
 
+from ph_care import initialize_care_sensors
+
 from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from time import time
@@ -50,7 +52,6 @@ def init_sensors():
         "Unioil_Congressional" : [121.064763,14.672367],
         "Unioil_WestAve" : [121.027586,14.644702],
         "Unioil_EdsaGuadalupe" : [121.025319,14.476359]
-        # "Unioil_Meycauayan" : []    # 0 always?
         # MISSING: Unioil Katipunan - Quezon Ave - Barangka - Conception, National Children's Hospital, Madison st. Greenhills
     }
     return WAQI_sensors, IQAir_locations, IQAir_sensors
@@ -60,6 +61,7 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
     X_location = []
     Y_location = []
     US_AQI = []
+    source = []
     for sensor in WAQI_sensors:
         try:
             response = requests.request("GET", WAQI_sensors[sensor], timeout=5)
@@ -80,18 +82,22 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
         X_location.append(sensor_x)
         Y_location.append(sensor_y)
         US_AQI.append(sensor_aqi)
+        source.append("WAQI")
 
     # start = time()
     for sensor in IQAir_sensors:
         # page = urlopen(IQAir_sensors[sensor])
         # html = page.read().decode("utf-8")
         try:
-            page = requests.get(IQAir_sensors[sensor], timeout=5)
+            headers = requests.utils.default_headers()
+            headers.update({
+                'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:52.0) Gecko/20100101 Firefox/52.0',
+            })
+            page = requests.get(IQAir_sensors[sensor], timeout=5, headers=headers)
         except Exception as err:
             print("Error with "+ sensor + f" sensor: {err=}, {type(err)=}")
             continue
         soup = BeautifulSoup(page.content, "html.parser")
-
         try:
             sensor_aqi = float(soup.find('p', attrs={'class':'aqi-value__value'}).string)
         except Exception as err:
@@ -103,9 +109,20 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
         X_location.append(IQAir_locations[sensor][0])
         Y_location.append(IQAir_locations[sensor][1])
         US_AQI.append(sensor_aqi)
+        source.append("IQAir")
     # print("Time Elapsed: "+str(time()-start)+" seconds")
 
-    df = pd.DataFrame({'Sensor Name':Sensor_Name,'X':X_location,'Y':Y_location,'US AQI':US_AQI})
+    care_sensors = initialize_care_sensors()
+    for care_sensor in care_sensors:
+        # if care_sensor.organization == None or care_sensor.aqi == None:
+        #     continue
+        Sensor_Name.append(care_sensor.location_id)
+        X_location.append(care_sensor.longitude)
+        Y_location.append(care_sensor.latitude)
+        US_AQI.append(care_sensor.aqi)
+        source.append("UPCARE")
+
+    df = pd.DataFrame({'Sensor Name':Sensor_Name,'X':X_location,'Y':Y_location,'US AQI':US_AQI,'source':source})
     return Sensor_Name, X_location, Y_location, US_AQI, df
 
 def df_to_csv(df, date_time):

@@ -7,6 +7,6 @@ def get_idw(date_time):
         extent_shapefile="./shapefiles/Philippines_Border.shp",
         column_name="US AQI",
         power=2,
-        search_radious=15,
+        search_radious=10,
         output_resolution=250,
     )
