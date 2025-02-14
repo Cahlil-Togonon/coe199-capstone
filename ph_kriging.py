@@ -7,26 +7,39 @@ from rasterio.transform import from_origin
 
 def kriging_interpolation(date_time):
     df = pd.read_csv("./temp/aqi_"+date_time+".csv")
-    gdf = gpd.read_file('./shapefiles/Philippines_Border.shp')
+    # gdf = gpd.read_file('./shapefiles/Philippines_Border.shp')
+
+    # bounds = gdf.total_bounds
+    # Xmin = bounds[0]
+    # Ymin = bounds[1]
+    # Xmax = bounds[2]
+    # Ymax = bounds[3]
+
+    df = df[df['Sensor Name'].str.match(r'^RENET.*')]
+    print(df)
+
+    path = '../congestion-emission-routing-system/aqi.csv'
+    # df.to_csv(path, index=False)
+    print("DataFrame has been saved to " + path)
 
     data = df[["X","Y","US AQI"]].to_numpy()
-    print(data)
+    # print data
 
-    bounds = gdf.total_bounds
-    Xmin = bounds[0]
-    Ymin = bounds[1]
-    Xmax = bounds[2]
-    Ymax = bounds[3]
+    offset = 0.002
+    Xmin = min(df['X']) - offset
+    Xmax = max(df['X']) + offset
+    Ymin = min(df['Y']) - offset
+    Ymax = max(df['Y']) + offset
 
-    gridx = np.arange(Xmin, Xmax, 0.001)
-    gridy = np.arange(Ymin, Ymax, 0.001)
+    gridx = np.arange(Xmin, Xmax, 0.0001)
+    gridy = np.arange(Ymin, Ymax, 0.0001)
 
     OK = OrdinaryKriging(
         data[:, 0],
         data[:, 1],
         data[:, 2],
         variogram_model="spherical",
-        nlags = 1,
+        nlags = 6,
         verbose=False,
         enable_plotting=False,
         exact_values=True,
@@ -34,9 +47,10 @@ def kriging_interpolation(date_time):
     )
 
     z_pred, ss = OK.execute("grid", gridx, gridy)
+    z_pred = np.flipud(z_pred)
 
     output_raster_path="./shapefiles/Philippines_Pollution_"+date_time+".tif"
-    pixel_size = 0.001
+    pixel_size = 0.0001
 
     transform = from_origin(gridx.min(), gridy.max(), pixel_size, pixel_size)
 

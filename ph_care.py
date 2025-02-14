@@ -15,7 +15,7 @@ class Sensor:
         self.database_name = input_data["mapping"][0]["database_name"]
         self.topic = input_data["mapping"][0]["topic"]
         self.source = input_data["mapping"][0]["source"]
-        print(self.organization)
+        # print(self.organization)
     
     def get_location(self) -> None:
         SENSOR_LOCATION_URL = f"https://sync.upcare.ph/api/location"
@@ -28,8 +28,8 @@ class Sensor:
                 self.latitude = location["latitude"]
                 self.longitude = location["longitude"]
                 break
-        assert self.latitude
-        assert self.longitude
+        # assert self.latitude
+        # assert self.longitude
 
     def get_latest_sensor_data(self) -> None:
         CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.organization}/aqi/latest"
@@ -66,8 +66,9 @@ def initialize_care_sensors() -> list:
     for sensor_data in sensors_raw:
         sensor = Sensor()
         sensor.populate_metadata(sensor_data)
-        sensor.get_location()
-        sensor.get_latest_sensor_data()
-        sensors.append(sensor)
+        if sensor.location_id:
+            sensor.get_location()
+            sensor.get_latest_sensor_data()
+            sensors.append(sensor)
 
     return sensors

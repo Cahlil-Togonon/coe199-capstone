@@ -2,13 +2,21 @@ import psycopg2
 import geopandas as gpd
 import json
 from shapely.geometry import shape
+import os
 
 def upload_to_db(date_time, psql_date_time):
-    conn = psycopg2.connect(database = "manila_osm",
-                            host = "localhost",
-                            user = "postgres",
-                            password = "admin",
-                            port = "5432")
+
+    database_url = os.getenv('DATABASE_URL')
+
+    if database_url is None:
+        conn = psycopg2.connect(database = "manila_osm",
+                        host = "localhost",
+                        user = "postgres",
+                        password = "admin",
+                        port = "5432")
+    
+    else:
+        conn = psycopg2.connect(database_url)
 
     cursor = conn.cursor()
 

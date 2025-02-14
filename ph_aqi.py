@@ -5,7 +5,7 @@ from shapely.geometry import Point
 
 from ph_care import initialize_care_sensors
 
-from urllib.request import urlopen
+# from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from time import time
 
@@ -56,12 +56,27 @@ def init_sensors():
     }
     return WAQI_sensors, IQAir_locations, IQAir_sensors
 
-def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
-    Sensor_Name = []
-    X_location = []
-    Y_location = []
-    US_AQI = []
-    source = []
+
+class Sensor_Data:
+    def __init__(self):
+        self.sensor_name = []
+        self.X_location = []
+        self.Y_location = []
+        self.US_AQI = []
+        self.source = []
+    
+    def add_sensor(self, sensor_name, X_location, Y_location, US_AQI, source):
+        self.sensor_name.append(sensor_name)
+        self.X_location.append(X_location)
+        self.Y_location.append(Y_location)
+        self.US_AQI.append(US_AQI)
+        self.source.append(source)
+    
+    def return_dict(self):
+        return {'Sensor Name':self.sensor_name,'X':self.X_location,'Y':self.Y_location,'US AQI':self.US_AQI,'source':self.source}
+
+
+def waqi_API(sensor_data, WAQI_sensors):
     for sensor in WAQI_sensors:
         try:
             response = requests.request("GET", WAQI_sensors[sensor], timeout=5)
@@ -77,14 +92,11 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
             print("Error with "+ sensor + f" sensor: {err=}, {type(err)=}")
             continue
 
-        print(sensor+": "+str(sensor_aqi))
-        Sensor_Name.append(sensor)
-        X_location.append(sensor_x)
-        Y_location.append(sensor_y)
-        US_AQI.append(sensor_aqi)
-        source.append("WAQI")
+        # print(sensor+": "+str(sensor_aqi))
+        sensor_data.add_sensor(sensor, sensor_x, sensor_y, sensor_aqi, "WAQI")
 
-    # start = time()
+
+def IQair_API(sensor_data, IQAir_locations, IQAir_sensors):
     for sensor in IQAir_sensors:
         # page = urlopen(IQAir_sensors[sensor])
         # html = page.read().decode("utf-8")
@@ -104,30 +116,30 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
             print("Error with "+ sensor + f" sensor: {err=}, {type(err)=}")
             continue
 
-        print(sensor+": "+str(sensor_aqi))
-        Sensor_Name.append(sensor)      # could automate sensor name using the html content
-        X_location.append(IQAir_locations[sensor][0])
-        Y_location.append(IQAir_locations[sensor][1])
-        US_AQI.append(sensor_aqi)
-        source.append("IQAir")
-    # print("Time Elapsed: "+str(time()-start)+" seconds")
+        # print(sensor+": "+str(sensor_aqi))
+        sensor_data.add_sensor(sensor, IQAir_locations[sensor][0], IQAir_locations[sensor][1], sensor_aqi, "IQAir")
+
+
+def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
+    sensor_data = Sensor_Data()
+    
+    # waqi_API(sensor_data, WAQI_sensors)
+    # IQair_API(sensor_data, IQAir_locations, IQAir_sensors)
 
     care_sensors = initialize_care_sensors()
     for care_sensor in care_sensors:
         # if care_sensor.organization == None or care_sensor.aqi == None:
         #     continue
-        Sensor_Name.append(care_sensor.location_id)
-        X_location.append(care_sensor.longitude)
-        Y_location.append(care_sensor.latitude)
-        US_AQI.append(care_sensor.aqi)
-        source.append("UPCARE")
+        sensor_data.add_sensor(care_sensor.location_id, care_sensor.longitude, care_sensor.latitude, care_sensor.aqi, "UPCARE")
 
-    df = pd.DataFrame({'Sensor Name':Sensor_Name,'X':X_location,'Y':Y_location,'US AQI':US_AQI,'source':source})
-    return Sensor_Name, X_location, Y_location, US_AQI, df
+    df = pd.DataFrame(sensor_data.return_dict())
+    return df
+
 
 def df_to_csv(df, date_time):
     # to csv file
     df.to_csv("./temp/test_aqis_"+date_time+".csv", index=False, encoding='utf-8')
+
 
 def df_to_shp(df, date_time):
     # save to shapefile
