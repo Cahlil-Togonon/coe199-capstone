@@ -15,12 +15,17 @@ def kriging_interpolation(date_time):
     # Xmax = bounds[2]
     # Ymax = bounds[3]
 
-    df = df[df['Sensor Name'].str.match(r'^RENET.*')]
+    # # filter sensors to RENETZeros
+    # df = df[df['Sensor Name'].str.match(r'^RENET.*')]
+    
+    # filter sensors to Metro Manila Baguio
+    df = df[ (df['Y'] <= 14.8) & (14.4 <= df['Y']) ]
+    df = df[ (df['X'] <= 121.15) & (120.90 <= df['X']) ]
     print(df)
 
-    path = '../congestion-emission-routing-system/aqi.csv'
+    # path = '../routing-backend/aqi.csv'
     # df.to_csv(path, index=False)
-    print("DataFrame has been saved to " + path)
+    # print("DataFrame has been saved to " + path)
 
     data = df[["X","Y","US AQI"]].to_numpy()
     # print data
@@ -31,8 +36,13 @@ def kriging_interpolation(date_time):
     Ymin = min(df['Y']) - offset
     Ymax = max(df['Y']) + offset
 
-    gridx = np.arange(Xmin, Xmax, 0.0001)
-    gridy = np.arange(Ymin, Ymax, 0.0001)
+    X_size = Xmax - Xmin
+    Y_size = Ymax - Ymin
+    # print(X_size, Y_size)
+    
+    pixel_size = max(X_size,Y_size)/500
+    gridx = np.arange(Xmin, Xmax, pixel_size)
+    gridy = np.arange(Ymin, Ymax, pixel_size)
 
     OK = OrdinaryKriging(
         data[:, 0],
@@ -50,7 +60,7 @@ def kriging_interpolation(date_time):
     z_pred = np.flipud(z_pred)
 
     output_raster_path="./shapefiles/Philippines_Pollution_"+date_time+".tif"
-    pixel_size = 0.0001
+    # pixel_size = 0.0001
 
     transform = from_origin(gridx.min(), gridy.max(), pixel_size, pixel_size)
 
