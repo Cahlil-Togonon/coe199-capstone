@@ -6,51 +6,63 @@ class Sensor:
         pass
     
     def populate_metadata(self,input_data) -> None:
-        self.device_id = input_data["device_id"]
-        self.device_name = input_data["device_name"]
-        self.device_type = input_data["device_type"]
-        self.location_id = input_data["location_id"]
-        self.organization = input_data["organization"]
-        self.user_id = input_data["user_id"]
-        self.database_name = input_data["mapping"][0]["database_name"]
-        self.topic = input_data["mapping"][0]["topic"]
-        self.source = input_data["mapping"][0]["source"]
-        # print(self.organization)
+        try:
+            self.device_id = input_data["device_id"]
+            self.device_name = input_data["device_name"]
+            self.device_type = input_data["device_type"]
+            self.location_id = input_data["location_id"]
+            self.organization = input_data["organization"]
+            self.user_id = input_data["user_id"]
+            self.database_name = input_data["mapping"][0]["database_name"]
+            self.topic = input_data["mapping"][0]["topic"]
+            self.source = input_data["mapping"][0]["source"]
+        except Exception as err:
+            print(err)
     
     def get_location(self) -> None:
         SENSOR_LOCATION_URL = f"https://sync.upcare.ph/api/location"
-        response = requests.request("GET", SENSOR_LOCATION_URL, timeout=5)
-        input_data = response.json()
+
+        try:
+            response = requests.request("GET", SENSOR_LOCATION_URL, timeout=5)
+            input_data = response.json()
+
+            for location in input_data:
+                if location["location_id"] == self.location_id:
+                    self.latitude = location["latitude"]
+                    self.longitude = location["longitude"]
+                    break
+
+        except Exception as err:
+            print(err)
+
         print("location:", self.location_id)
 
-        for location in input_data:
-            if location["location_id"] == self.location_id:
-                self.latitude = location["latitude"]
-                self.longitude = location["longitude"]
-                break
-        # assert self.latitude
-        # assert self.longitude
+        return
+
 
     def get_latest_sensor_data(self) -> None:
-        CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.organization}/aqi/latest"
-        self.aqi = randint(0,200)
-        if self.organization == None:
-            print(f"No database table for {self.database_name}")
-            return
+        try:
+            assert self.organization is not None
 
-        response = requests.request("GET", CARE_SENSORINSIGHTS_URL, timeout=5)
-        raw_data = response.json()
+            CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.organization}/aqi/latest"
+            response = requests.request("GET", CARE_SENSORINSIGHTS_URL, timeout=5)
+            raw_data = response.json()
 
-        for sensor_data in raw_data:
-            try:
+            if not isinstance(raw_data, list):
+                raise NotImplementedError(raw_data["message"])
+
+            for sensor_data in raw_data:
                 if self.location_id == sensor_data["location_id"]:
                     self.aqi = float(sensor_data["aqi"])
                     return
-            except Exception as err:
-                print(err)
-                break
+            print(f"Sensor data not found for {self.location_id}")
 
-        print(f"Sensor data not found for {self.location_id}")
+        except Exception as err:
+            print(err)
+        
+        # randomize if no data, remove if needed
+        self.aqi = self.aqi = randint(0,100)
+        return
 
     def __str__(self):
         return f"Latitude: {self.latitude}, Longitude: {self.longitude}, AQI: {self.aqi}"
@@ -58,9 +70,13 @@ class Sensor:
 
 def initialize_care_sensors() -> list:
     CARE_DEVICES_URL = f"https://sync.upcare.ph/api/device"
+    sensors_raw = []
 
-    response = requests.request("GET", CARE_DEVICES_URL, timeout=5)
-    sensors_raw = response.json()
+    try:
+        response = requests.request("GET", CARE_DEVICES_URL, timeout=30)
+        sensors_raw = response.json()
+    except Exception as err:
+        print(err)
 
     sensors = []
     for sensor_data in sensors_raw:
