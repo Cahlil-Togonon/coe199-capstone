@@ -21,7 +21,7 @@ while 1:
     
     df = get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors)
     
-    print(df.to_string())
+    # print(df.to_string())
     df.to_csv("./temp/aqi_"+date_time+".csv", index=False, encoding='utf-8')
     df.to_csv("../express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
     df_to_shp(df, date_time)

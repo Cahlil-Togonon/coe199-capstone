@@ -30,10 +30,10 @@ def upload_to_db(date_time, psql_date_time):
         street["geometry"] = shape(geometry)
         streets.append(street)
     streets = gpd.GeoDataFrame(streets, crs="EPSG:4326")
-    print(streets.head())
+    # print(streets.head())
 
     aqi_polygons = gpd.read_file("./temp/polygonized_"+date_time+".json")
-    print(aqi_polygons.head())
+    # print(aqi_polygons.head())
 
     streets_aqi = streets.sjoin(aqi_polygons, how="inner", predicate="intersects")
 
