@@ -19,7 +19,11 @@ while 1:
     #ph_aqi functions
     WAQI_sensors, IQAir_locations, IQAir_sensors = init_sensors()
     
-    df = get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors)
+    try:
+        df = get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors)
+    except Exception as err:
+        print(err)
+        continue
     
     # print(df.to_string())
     df.to_csv("./temp/aqi_"+date_time+".csv", index=False, encoding='utf-8')
@@ -30,7 +34,12 @@ while 1:
     # get_idw(date_time)
 
     #ph_kriging functions
-    kriging_interpolation(date_time)
+    try:
+        kriging_interpolation(date_time)
+    except Exception as err:
+        print(err)
+        continue
+
 
     #ph_polygonize functions
         # max_AQI = max([int(i) for i in US_AQI])
@@ -44,6 +53,6 @@ while 1:
     #ph_filter functions
     # filter(threshold, date_time)
     
-    sleep_timer = 1*1*30
+    sleep_timer = 1*1*1
     print("Sleeping for "+str(sleep_timer)+" seconds...")
     sleep(sleep_timer)
