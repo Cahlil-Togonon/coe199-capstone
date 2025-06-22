@@ -8,8 +8,9 @@ from rasterio.transform import from_origin
 from shapely.geometry import Point
 import os
 
-def kriging_interpolation(date_time):
-    df = pd.read_csv("./temp/aqi_"+date_time+".csv")
+def kriging_interpolation(date_time, save_historical):
+    aqi_file = "./temp/aqi_"+date_time+".csv" if save_historical else "./temp/aqi.csv"
+    df = pd.read_csv(aqi_file)
     # gdf = gpd.read_file('./shapefiles/Philippines_Border.shp')
 
     # bounds = gdf.total_bounds
@@ -63,7 +64,7 @@ def kriging_interpolation(date_time):
 
     z_pred = np.flipud(z_pred)
 
-    output_raster_path="./shapefiles/Philippines_Pollution_"+date_time+".tif"
+    output_raster_path = "./shapefiles/Philippines_Pollution_"+date_time+".tif" if save_historical else "./shapefiles/Philippines_Pollution.tif"
     # pixel_size = 0.0001
 
     transform = from_origin(gridx.min(), gridy.max(), pixel_size, pixel_size)

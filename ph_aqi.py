@@ -135,15 +135,19 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
     df = pd.DataFrame(sensor_data.return_dict())
     return df
 
+# to csv file
+def df_to_csv(df, date_time, save_historical):
+    df.to_csv("../express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
 
-def df_to_csv(df, date_time):
-    # to csv file
-    df.to_csv("./temp/test_aqis_"+date_time+".csv", index=False, encoding='utf-8')
+    file_path = "./temp/aqi_"+date_time+".csv" if save_historical else "./temp/aqi.csv"
+    df.to_csv(file_path, index=False, encoding='utf-8')
 
 
-def df_to_shp(df, date_time):
+def df_to_shp(df, date_time, save_historical):
     # save to shapefile
     geometry = [Point(xy) for xy in zip(df.X, df.Y)]
     df = df.drop(['X', 'Y'], axis=1)
     gdf = GeoDataFrame(df, crs="EPSG:4326", geometry=geometry)
-    gdf.to_file("./shapefiles/Philippines_Pollution_"+date_time+".shp")
+
+    file_path = "./shapefiles/Philippines_Pollution_"+date_time+".shp" if save_historical else "./shapefiles/Philippines_Pollution.shp"
+    gdf.to_file(file_path)

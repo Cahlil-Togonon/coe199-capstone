@@ -4,7 +4,7 @@ import json
 from shapely.geometry import shape
 import os
 
-def upload_to_db(date_time, psql_date_time):
+def upload_to_db(date_time, psql_date_time, save_historical):
 
     database_url = os.getenv('DATABASE_URL')
 
@@ -30,14 +30,11 @@ def upload_to_db(date_time, psql_date_time):
         street["geometry"] = shape(geometry)
         streets.append(street)
     streets = gpd.GeoDataFrame(streets, crs="EPSG:4326")
-    # print(streets.head())
 
-    aqi_polygons = gpd.read_file("./temp/polygonized_"+date_time+".json")
-    # print(aqi_polygons.head())
+    polygon_file = "./temp/polygonized_"+date_time+".json" if save_historical else "./temp/polygonized.json"
+    aqi_polygons = gpd.read_file(polygon_file)
 
     streets_aqi = streets.sjoin(aqi_polygons, how="inner", predicate="intersects")
-
-    save_historical = False
 
     cursor.execute(f"INSERT INTO data_timestamps (data_timestamp) VALUES ('{psql_date_time}') ON CONFLICT DO NOTHING")
 

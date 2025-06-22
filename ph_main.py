@@ -13,7 +13,7 @@ while 1:
     format = "%d-%m-%Y_%H-%M-%S"        # dd-mm-yyyy_HH-MM-SS format
     date_time = datetime.now().strftime(format)
 
-    psql_format = "%Y-%m-%d %H:%M:%S"        # dd-mm-yyyy_HH-MM-SS format
+    psql_format = "%Y-%m-%d %H:%M:%S"        # yyyy_mm_dd HH-MM-SS format
     psql_date_time = datetime.now().strftime(psql_format)
 
     #ph_aqi functions
@@ -25,17 +25,17 @@ while 1:
         print(err)
         continue
     
-    # print(df.to_string())
-    df.to_csv("./temp/aqi_"+date_time+".csv", index=False, encoding='utf-8')
-    df.to_csv("../express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
-    df_to_shp(df, date_time)
+    save_historical = False
 
-    #ph_idw functions
+    df_to_csv(df, date_time, save_historical)
+    df_to_shp(df, date_time, save_historical)
+
+    #ph_idw function
     # get_idw(date_time)
 
     #ph_kriging functions
     try:
-        kriging_interpolation(date_time)
+        kriging_interpolation(date_time, save_historical)
     except Exception as err:
         print(err)
         continue
@@ -45,10 +45,10 @@ while 1:
         # max_AQI = max([int(i) for i in US_AQI])
         # threshold = randint(2*max_AQI//3,max_AQI)
         # print("threshold: "+str(threshold))
-    polygonize(200, date_time)
+    polygonize(200, date_time, save_historical)
 
     #ph_postgre functions
-    upload_to_db(date_time, psql_date_time)
+    upload_to_db(date_time, psql_date_time, save_historical)
 
     #ph_filter functions
     # filter(threshold, date_time)
