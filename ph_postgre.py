@@ -20,7 +20,7 @@ def upload_to_db(date_time, psql_date_time):
 
     cursor = conn.cursor()
 
-    cursor.execute('SELECT osm_id, ST_AsGeoJson(wkb_geometry) FROM test2')
+    cursor.execute('SELECT osm_id, ST_AsGeoJson(wkb_geometry) FROM osm_id_geometry')
 
     streets = []
     for osm_id, feature in cursor:
@@ -37,9 +37,18 @@ def upload_to_db(date_time, psql_date_time):
 
     streets_aqi = streets.sjoin(aqi_polygons, how="inner", predicate="intersects")
 
+    save_historical = False
+
     cursor.execute(f"INSERT INTO data_timestamps (data_timestamp) VALUES ('{psql_date_time}') ON CONFLICT DO NOTHING")
+
+    cursor.execute("TRUNCATE TABLE street_aqi")
+
     for street in streets_aqi.itertuples():
+
         cursor.execute(f"INSERT INTO street_aqi (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
+
+        if save_historical:
+            cursor.execute(f"INSERT INTO street_aqi_historical (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
     conn.commit()
 
     print("Successfully updated database")
