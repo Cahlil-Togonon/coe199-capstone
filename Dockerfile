@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install libexpat1 -y
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-CMD ["python", "ph_main.py"]
+CMD ["python", "-u", "ph_main.py"]
 
 # RUN apk add --no-cache \
 #     proj-util \
