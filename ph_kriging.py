@@ -124,6 +124,8 @@ def kriging_interpolation(date_time, save_historical):
     else:
         conn = psycopg2.connect(DB_CONFIG)
 
+    print("Connected to Database:", DB_CONFIG)
+
     cur = conn.cursor()
 
     # Create the table with geom (PostGIS Point)

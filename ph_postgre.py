@@ -18,6 +18,8 @@ def upload_to_db(date_time, psql_date_time, save_historical):
     else:
         conn = psycopg2.connect(database_url)
 
+    print("Connected to Database:", database_url)
+
     cursor = conn.cursor()
 
     cursor.execute('SELECT osm_id, ST_AsGeoJson(wkb_geometry) FROM osm_id_geometry')
@@ -39,6 +41,8 @@ def upload_to_db(date_time, psql_date_time, save_historical):
     cursor.execute(f"INSERT INTO data_timestamps (data_timestamp) VALUES ('{psql_date_time}') ON CONFLICT DO NOTHING")
 
     cursor.execute("TRUNCATE TABLE street_aqi")
+
+    print("Truncated database, inserting new data...")
 
     for street in streets_aqi.itertuples():
 

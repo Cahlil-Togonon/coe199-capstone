@@ -35,16 +35,16 @@ class Sensor:
         except Exception as err:
             print(err)
 
-        print("location:", self.location_id)
+        # print("location:", self.location_id)
 
         return
 
 
     def get_latest_sensor_data(self) -> None:
         try:
-            assert self.organization is not None
+            assert self.database_name is not None
 
-            CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.organization}/aqi/latest"
+            CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.database_name}/aqi/latest"
             response = requests.request("GET", CARE_SENSORINSIGHTS_URL, timeout=5)
             raw_data = response.json()
 
@@ -61,7 +61,7 @@ class Sensor:
             print(err)
         
         # randomize if no data, remove if needed
-        self.aqi = self.aqi = randint(0,100)
+        # self.aqi = self.aqi = randint(0,100)
         return
 
     def __str__(self):
