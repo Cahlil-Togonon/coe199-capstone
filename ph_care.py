@@ -3,7 +3,10 @@ from random import randint
 
 class Sensor:
     def __init__(self) -> None:
-        pass
+        self.aqi = None
+        self.latitude = None
+        self.longitude = None
+        self.location_id = None
     
     def populate_metadata(self,input_data) -> None:
         try:
@@ -18,11 +21,23 @@ class Sensor:
             self.source = input_data["mapping"][0]["source"]
         except Exception as err:
             print(err)
-    
-    def get_location(self) -> None:
-        SENSOR_LOCATION_URL = f"https://sync.upcare.ph/api/location"
 
+    def validate_data(self) -> bool:
         try:
+            assert self.location_id is not None
+            assert self.latitude is not None
+            assert self.longitude is not None
+            if not isinstance(self.aqi, float):
+                raise TypeError
+            return True
+        except (AssertionError,TypeError):
+            return False
+
+
+    def get_location(self) -> None:
+        try:
+            assert self.location_id is not None
+            SENSOR_LOCATION_URL = f"https://sync.upcare.ph/api/location"
             response = requests.request("GET", SENSOR_LOCATION_URL, timeout=5)
             input_data = response.json()
 
@@ -31,11 +46,9 @@ class Sensor:
                     self.latitude = location["latitude"]
                     self.longitude = location["longitude"]
                     break
-
+                
         except Exception as err:
-            print(err)
-
-        # print("location:", self.location_id)
+            print(f"Error with getting location for {self.device_name}:", err)
 
         return
 
@@ -43,7 +56,6 @@ class Sensor:
     def get_latest_sensor_data(self) -> None:
         try:
             assert self.database_name is not None
-
             CARE_SENSORINSIGHTS_URL = f"https://sync.upcare.ph/api/sensorinsights/{self.database_name}/aqi/latest"
             response = requests.request("GET", CARE_SENSORINSIGHTS_URL, timeout=5)
             raw_data = response.json()
@@ -53,14 +65,19 @@ class Sensor:
 
             for sensor_data in raw_data:
                 if self.location_id == sensor_data["location_id"]:
-                    self.aqi = float(sensor_data["aqi"])
+                    latest_aqi = float(sensor_data["aqi"])
+                    self.aqi = latest_aqi
                     return
-            print(f"Sensor data not found for {self.location_id}")
-
-        except Exception as err:
-            print(err)
+            # If not found
+            raise NotImplementedError("No data from API")
         
-        # randomize if no data, remove if needed
+        except TypeError:
+            print(f"Sensor data not found for {self.location_id}:", "AQI is null")
+        
+        except Exception as err:
+            print(f"Sensor data not found for {self.location_id}:", err)
+        
+        # randomize if no data
         # self.aqi = self.aqi = randint(0,100)
         return
 
@@ -82,9 +99,10 @@ def initialize_care_sensors() -> list:
     for sensor_data in sensors_raw:
         sensor = Sensor()
         sensor.populate_metadata(sensor_data)
-        if sensor.location_id:
-            sensor.get_location()
-            sensor.get_latest_sensor_data()
+        sensor.get_location()
+        sensor.get_latest_sensor_data()
+        if sensor.validate_data():
+            print([sensor.location_id,sensor.aqi,sensor.latitude,sensor.longitude])
             sensors.append(sensor)
 
     return sensors
