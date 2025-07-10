@@ -30,8 +30,8 @@ def polygonize(threshold, date_time, save_historical):
         polygon_file = "./temp/polygonized_"+date_time+".json" if save_historical else "./temp/polygonized.json"
         with open(polygon_file, "w") as outfile:
             outfile.write(json_output)
-        with open("../shared-data/express-leaflet/public/polygonized.json", "w") as outfile:  # point this to your leaflet+valhalla github folder
-            outfile.write(json_output)
+        # with open("../shared-data/express-leaflet/public/polygonized.json", "w") as outfile:  # point this to your leaflet+valhalla github folder
+        #     outfile.write(json_output)
 
         database_url = os.getenv('DATABASE_URL')
         

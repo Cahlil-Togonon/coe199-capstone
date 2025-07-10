@@ -193,7 +193,7 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
 
 # to csv file
 def df_to_csv(df, date_time, save_historical):
-    df.to_csv("../shared-data/express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
+    # df.to_csv("../shared-data/express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
 
     file_path = "./temp/aqi_"+date_time+".csv" if save_historical else "./temp/aqi.csv"
     df.to_csv(file_path, index=False, encoding='utf-8')
