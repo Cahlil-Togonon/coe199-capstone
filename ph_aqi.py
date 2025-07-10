@@ -8,6 +8,9 @@ from ph_care import initialize_care_sensors
 # from urllib.request import urlopen
 from bs4 import BeautifulSoup
 from time import time
+import os
+import psycopg2
+import warnings
 
 def init_sensors():
     token = "6f298a6f68c27deb7dcd10aacef33abbd6819fdc"
@@ -71,6 +74,58 @@ class Sensor_Data:
         self.Y_location.append(Y_location)
         self.US_AQI.append(US_AQI)
         self.source.append(source)
+
+    def save_to_postgis(self, table_name='sensor_aqi'):
+        try:
+            database_url = os.getenv('DATABASE_URL')
+
+            if database_url is None:
+                conn = psycopg2.connect(database = "manila_osm",
+                                host = "localhost",
+                                user = "postgres",
+                                password = "admin",
+                                port = "5432")
+            
+            else:
+                conn = psycopg2.connect(database_url)
+
+            print("Connected to Database:", database_url)
+
+            cur = conn.cursor()
+            
+
+            cur.execute(f"""
+                CREATE TABLE IF NOT EXISTS {table_name} (
+                    id SERIAL PRIMARY KEY,
+                    sensor_name TEXT,
+                    source TEXT,
+                    aqi DOUBLE PRECISION,
+                    geom GEOMETRY(Point, 4326)
+                )
+            """)
+
+            # Optional: delete existing rows from same source to avoid duplicates
+            cur.execute(f"DELETE FROM {table_name} WHERE source = %s", (self.source[0],))
+
+            insert_query = f"""
+                INSERT INTO {table_name} (sensor_name, source, aqi, geom)
+                VALUES (%s, %s, %s, ST_SetSRID(ST_GeomFromText(%s), 4326))
+            """
+
+            records = []
+            for name, x, y, aqi, src in zip(self.sensor_name, self.X_location, self.Y_location, self.US_AQI, self.source):
+                wkt = Point(x, y).wkt  # WKT = 'POINT(lon lat)'
+                records.append((name, src, aqi, wkt))
+
+            cur.executemany(insert_query, records)
+            conn.commit()
+
+            print(f"Saved {len(records)} sensor records to `{table_name}`.")
+            cur.close()
+            conn.close()
+
+        except Exception as e:
+            print("Error saving sensor data:", e)
     
     def return_dict(self):
         return {'Sensor Name':self.sensor_name,'X':self.X_location,'Y':self.Y_location,'US AQI':self.US_AQI,'source':self.source}
@@ -132,12 +187,13 @@ def get_sensor_data(WAQI_sensors, IQAir_locations, IQAir_sensors):
         #     continue
         sensor_data.add_sensor(care_sensor.location_id, care_sensor.longitude, care_sensor.latitude, care_sensor.aqi, "UPCARE")
 
+    sensor_data.save_to_postgis()
     df = pd.DataFrame(sensor_data.return_dict())
     return df
 
 # to csv file
 def df_to_csv(df, date_time, save_historical):
-    df.to_csv("../express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
+    df.to_csv("../shared-data/express-leaflet/public/aqi.csv", index=False, encoding='utf-8')
 
     file_path = "./temp/aqi_"+date_time+".csv" if save_historical else "./temp/aqi.csv"
     df.to_csv(file_path, index=False, encoding='utf-8')
@@ -149,5 +205,6 @@ def df_to_shp(df, date_time, save_historical):
     df = df.drop(['X', 'Y'], axis=1)
     gdf = GeoDataFrame(df, crs="EPSG:4326", geometry=geometry)
 
+    warnings.filterwarnings("ignore", category=UserWarning)
     file_path = "./shapefiles/Philippines_Pollution_"+date_time+".shp" if save_historical else "./shapefiles/Philippines_Pollution.shp"
     gdf.to_file(file_path)

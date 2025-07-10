@@ -3,6 +3,8 @@ import geopandas as gpd
 import json
 from shapely.geometry import shape
 import os
+from shapely.wkb import dumps as wkb_dumps
+from psycopg2.extras import execute_values
 
 def upload_to_db(date_time, psql_date_time, save_historical):
 
@@ -40,16 +42,31 @@ def upload_to_db(date_time, psql_date_time, save_historical):
 
     cursor.execute(f"INSERT INTO data_timestamps (data_timestamp) VALUES ('{psql_date_time}') ON CONFLICT DO NOTHING")
 
-    cursor.execute("TRUNCATE TABLE street_aqi")
+    cursor.execute("DELETE FROM street_aqi")
 
     print("Truncated database, inserting new data...")
 
-    for street in streets_aqi.itertuples():
+    values = [
+        (street.osm_id, wkb_dumps(street.geometry), street.AQI, psql_date_time)
+        for street in streets_aqi.itertuples()
+    ]
+    
+    execute_values(cursor, """
+        INSERT INTO street_aqi (osm_id, wkb_geometry, aqi, data_timestamp)
+        VALUES %s
+    """, values, template="(%s, ST_GeomFromWKB(%s, 4326), %s, %s)")
 
-        cursor.execute(f"INSERT INTO street_aqi (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
+    if save_historical:
+        execute_values(cursor, """
+            INSERT INTO street_aqi_historical (osm_id, wkb_geometry, aqi, data_timestamp)
+            VALUES %s
+        """, values, template="(%s, ST_GeomFromWKB(%s, 4326), %s, %s)")
+    # for street in streets_aqi.itertuples():
 
-        if save_historical:
-            cursor.execute(f"INSERT INTO street_aqi_historical (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
+    #     cursor.execute(f"INSERT INTO street_aqi (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
+
+    #     if save_historical:
+    #         cursor.execute(f"INSERT INTO street_aqi_historical (osm_id, wkb_geometry, aqi, data_timestamp) VALUES ({street.osm_id}, ST_AsBinary('{street.geometry}'::geometry), {street.AQI}, '{psql_date_time}')")
     conn.commit()
 
     print("Successfully updated database")

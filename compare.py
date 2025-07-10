@@ -7,8 +7,8 @@ def load_nodes_from_csv(file_path):
         reader = csv.DictReader(csvfile)
         for row in reader:
             try:
-                lat = round(float(row['lat']), 5)
-                lon = round(float(row['lon']), 5)
+                lat = round(float(row['lat']), 7)
+                lon = round(float(row['lon']), 7)
                 nodes.add((lat, lon))
             except (ValueError, KeyError):
                 continue
@@ -16,7 +16,7 @@ def load_nodes_from_csv(file_path):
 
 # Load nodes from both CSVs
 postgis_nodes = load_nodes_from_csv("unique_nodes.csv")
-graphhopper_nodes = load_nodes_from_csv("../routing-backend/unique_nodes.csv")
+graphhopper_nodes = load_nodes_from_csv("../shared-data/unique_nodes.csv")
 
 # Compute intersection and differences
 matched_nodes = postgis_nodes & graphhopper_nodes

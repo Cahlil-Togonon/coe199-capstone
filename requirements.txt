@@ -12,3 +12,4 @@ routingpy
 scikit_learn
 Shapely
 pykrige
+geoalchemy2

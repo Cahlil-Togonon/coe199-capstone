@@ -7,6 +7,7 @@ import rasterio
 from rasterio.transform import from_origin
 from shapely.geometry import Point
 import os
+from psycopg2.extras import execute_values
 
 def kriging_interpolation(date_time, save_historical):
     aqi_file = "./temp/aqi_"+date_time+".csv" if save_historical else "./temp/aqi.csv"
@@ -27,9 +28,9 @@ def kriging_interpolation(date_time, save_historical):
     df = df[ (df['X'] <= 121.15) & (120.90 <= df['X']) ]
     print(df)
 
-    path = '../routing-backend/maps/aqi.csv'
-    df.to_csv(path, index=False)
-    print("DataFrame has been saved to " + path)
+    # path = '../routing-backend/maps/aqi.csv'
+    # df.to_csv(path, index=False)
+    # print("DataFrame has been saved to " + path)
 
     data = df[["X","Y","US AQI"]].to_numpy()
     # print data
@@ -77,37 +78,11 @@ def kriging_interpolation(date_time, save_historical):
 
     print(f"Raster file saved as: {output_raster_path}")
 
-    # ---- Configuration ----
-    CSV_NODE_PATH = "../shared-data/unique_nodes.csv"
+    # # ---- Configuration ----
+    # CSV_NODE_PATH = "../shared-data/unique_nodes.csv"
 
-    # ---- Interpolate AQI for Unique Nodes ----
-    df_nodes = pd.read_csv(CSV_NODE_PATH)
-    # Convert lat/lon from DataFrame to NumPy arrays
-    lat_arr = df_nodes['lat'].to_numpy()
-    lon_arr = df_nodes['lon'].to_numpy()
-
-    # Check bounds mask
-    in_bounds_mask = (
-        (lon_arr >= Xmin) & (lon_arr <= Xmax) &
-        (lat_arr >= Ymin) & (lat_arr <= Ymax)
-    )
-
-    # Run OK only for in-bound nodes
-    predicted_aqi = np.full(lat_arr.shape, 500.0)  # default AQI 500
-    in_bounds_indices = np.where(in_bounds_mask)[0]
-
-    if len(in_bounds_indices) > 0:
-        lat_in = lat_arr[in_bounds_indices]
-        lon_in = lon_arr[in_bounds_indices]
-        z, _ = OK.execute("points", lon_in, lat_in)
-        z = np.maximum(z, 0)  # ensure positive predictions
-        predicted_aqi[in_bounds_indices] = z
-
-    # Combine results (adding geometry for PostGIS)
-    predicted_nodes = [
-        (lat, lon, aqi, Point(lon, lat).wkt)  # Create geometry column with WKT format
-        for lat, lon, aqi in zip(lat_arr, lon_arr, predicted_aqi)
-    ]
+    # # ---- Interpolate AQI for Unique Nodes ----
+    # df_nodes = pd.read_csv(CSV_NODE_PATH)
 
     # ---- Insert to PostgreSQL ----
     DB_CONFIG = os.getenv('DATABASE_URL')
@@ -128,6 +103,44 @@ def kriging_interpolation(date_time, save_historical):
 
     cur = conn.cursor()
 
+    cur.execute("SELECT lat, lon FROM nodes")
+    rows = cur.fetchall()
+
+    print(f"Fetched {len(rows)} nodes from database")
+
+    # Convert to DataFrame manually
+    df_nodes = pd.DataFrame(rows, columns=["lat", "lon"])
+
+    lat_arr = df_nodes['lat'].to_numpy()
+    lon_arr = df_nodes['lon'].to_numpy()
+
+    # Check bounds mask
+    in_bounds_mask = (
+        (lon_arr >= Xmin) & (lon_arr <= Xmax) &
+        (lat_arr >= Ymin) & (lat_arr <= Ymax)
+    )
+
+    # Run OK only for in-bound nodes
+    predicted_aqi = np.full(lat_arr.shape, 0.0)  # default AQI 0
+    in_bounds_indices = np.where(in_bounds_mask)[0]
+
+    if len(in_bounds_indices) > 0:
+        lat_in = lat_arr[in_bounds_indices]
+        lon_in = lon_arr[in_bounds_indices]
+        z, _ = OK.execute("points", lon_in, lat_in)
+        z = np.maximum(z, 0)  # ensure positive predictions
+        predicted_aqi[in_bounds_indices] = z
+
+    print(f"Finished Kriging Interpolation on {len(rows)} nodes")
+
+    # Combine results (adding geometry for PostGIS)
+    predicted_nodes = [
+        (lat, lon, aqi, Point(lon, lat).wkt)  # Create geometry column with WKT format
+        for lat, lon, aqi in zip(lat_arr, lon_arr, predicted_aqi)
+    ]
+
+    cur = conn.cursor()
+
     # Create the table with geom (PostGIS Point)
     cur.execute("""
         CREATE TABLE IF NOT EXISTS nodes (
@@ -135,18 +148,32 @@ def kriging_interpolation(date_time, save_historical):
             lat DOUBLE PRECISION,
             lon DOUBLE PRECISION,
             predicted_aqi DOUBLE PRECISION,
-            geom GEOMETRY(Point, 4326),  -- Add the geometry column for PostGIS
+            geom GEOMETRY(Point, 4326),
             UNIQUE (lat, lon)
         )
     """)
 
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_nodes_lat_lon ON nodes (lat, lon)")
+    cur.execute("DROP INDEX IF EXISTS idx_nodes_geom")
+
+
     # Insert with ON CONFLICT clause to update predicted_aqi
-    cur.executemany("""
+    execute_values(cur, """
         INSERT INTO nodes (lat, lon, predicted_aqi, geom)
-        VALUES (%s, %s, %s, ST_SetSRID(ST_GeomFromText(%s), 4326))
+        VALUES %s
         ON CONFLICT (lat, lon)
         DO UPDATE SET predicted_aqi = EXCLUDED.predicted_aqi
     """, predicted_nodes)
+
+    # cur.executemany("""
+    #     INSERT INTO nodes (lat, lon, predicted_aqi, geom)
+    #     VALUES (%s, %s, %s, ST_SetSRID(ST_GeomFromText(%s), 4326))
+    #     ON CONFLICT (lat, lon)
+    #     DO UPDATE SET predicted_aqi = EXCLUDED.predicted_aqi
+    # """, predicted_nodes)
+
+    cur.execute("CREATE INDEX idx_nodes_geom ON nodes USING GIST (geom)")
+
 
     conn.commit()
     cur.close()
